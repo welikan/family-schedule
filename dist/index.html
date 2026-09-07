@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#173f5f">
+  <meta name="description" content="Сводное расписание Артёма, Марии и Оли">
+  <title>Расписание детей</title>
+  <style>
+    :root{--ink:#172b3a;--muted:#657786;--navy:#173f5f;--blue:#e8f2f8;--line:#d6e2e9;--paper:#f4f7f9;--card:#fff;--green:#d8f7df;--green-ink:#185c2c;--yellow:#fff0bd;--shadow:0 12px 35px rgba(31,65,86,.1)}
+    *{box-sizing:border-box}
+    html{background:var(--paper);color:var(--ink);font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
+    body{margin:0;min-height:100vh}
+    button{font:inherit}
+    .app{max-width:1120px;margin:auto;padding:env(safe-area-inset-top) 16px calc(24px + env(safe-area-inset-bottom))}
+    header{padding:24px 2px 14px;display:flex;align-items:end;justify-content:space-between;gap:12px}
+    h1{font-size:clamp(1.55rem,5vw,2.25rem);line-height:1.05;margin:0;letter-spacing:-.03em;color:var(--navy)}
+    #date{margin:7px 0 0;color:var(--muted);font-size:.94rem;text-transform:capitalize}
+    .today-btn{border:1px solid #aec4d1;background:#fff;color:var(--navy);padding:9px 13px;border-radius:12px;font-weight:700;cursor:pointer}
+    .days{display:flex;gap:8px;overflow-x:auto;padding:3px 0 14px;scrollbar-width:none;position:sticky;top:0;z-index:10;background:linear-gradient(var(--paper) 82%,transparent)}
+    .days::-webkit-scrollbar{display:none}
+    .day{border:1px solid #c8d7e0;background:#fff;color:#536b7a;border-radius:999px;padding:10px 14px;white-space:nowrap;font-weight:700;cursor:pointer}
+    .day[aria-selected="true"]{background:var(--navy);border-color:var(--navy);color:#fff;box-shadow:0 5px 14px rgba(23,63,95,.2)}
+    .summary{display:flex;align-items:center;justify-content:space-between;margin:5px 1px 12px;gap:12px}
+    .summary h2{font-size:1.05rem;margin:0}.summary span{color:var(--muted);font-size:.85rem}
+    .grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+    .person{background:var(--card);border:1px solid #dfe8ed;border-radius:18px;overflow:hidden;box-shadow:var(--shadow)}
+    .person-head{display:flex;align-items:center;justify-content:space-between;padding:15px 16px;background:var(--blue);border-bottom:1px solid var(--line)}
+    .person h3{font-size:1.14rem;margin:0}.count{font-size:.78rem;color:#5d7483;background:#fff;padding:4px 8px;border-radius:999px}
+    .events{list-style:none;margin:0;padding:6px 0}
+    .event{display:grid;grid-template-columns:108px 1fr;gap:10px;padding:9px 14px;border-bottom:1px solid #edf2f5;position:relative}
+    .event:last-child{border-bottom:0}.time{color:#647c8b;font-size:.84rem;font-variant-numeric:tabular-nums;padding-top:2px}.title{font-weight:650;line-height:1.32}
+    .extra{background:var(--green)}.extra .title{color:var(--green-ink)}.music{background:var(--yellow)}.music .title{color:#735c00}
+    .now{box-shadow:inset 4px 0 #e4572e}.next{box-shadow:inset 4px 0 #2e83b7}.badge{display:inline-block;margin-left:7px;font-size:.67rem;letter-spacing:.03em;text-transform:uppercase;color:#fff;padding:2px 5px;border-radius:5px;vertical-align:2px}.now .badge{background:#e4572e}.next .badge{background:#2e83b7}
+    .empty{grid-column:1/-1;text-align:center;background:#fff;border:1px solid var(--line);padding:42px 20px;border-radius:18px;color:var(--muted)}
+    footer{text-align:center;color:#8495a0;font-size:.78rem;padding:20px 0 0}
+    @media(max-width:760px){header{padding-top:18px}.grid{grid-template-columns:1fr}.person{box-shadow:0 7px 22px rgba(31,65,86,.08)}.event{grid-template-columns:103px 1fr;padding:9px 13px}.days{margin:0 -16px;padding-left:16px;padding-right:16px}.summary{margin-top:0}}
+  </style>
+</head>
+<body>
+<main class="app">
+  <header><div><h1>Расписание детей</h1><p id="date"></p></div><button class="today-btn" id="today" type="button">Сегодня</button></header>
+  <nav class="days" id="days" aria-label="Дни недели" role="tablist"></nav>
+  <div class="summary"><h2 id="heading"></h2><span id="status"></span></div>
+  <section class="grid" id="schedule" aria-live="polite"></section>
+  <footer>Время — Минск</footer>
+</main>
+<script>
+const bells=[['08:00','08:45'],['08:55','09:40'],['09:55','10:40'],['10:55','11:40'],['11:50','12:35'],['12:45','13:30'],['13:50','14:35']];
+const days=['Понедельник','Вторник','Среда','Четверг','Пятница','Суббота'];
+const short=['Пн','Вт','Ср','Чт','Пт','Сб'];
+const people=['Артём','Мария','Оля'];
+const lessons={
+'Понедельник':{'Артём':['Рус. яз.','Рус. лит.','Матем.','Всемир. ист.','Англ. яз.'],'Мария':['Всемир. ист.','Матем.','Бел. яз.','Бел. лит.','Геогр.','Физ-ра'],'Оля':['Рус. лит.','Матем.','Рус. яз.','Кл. час']},
+'Вторник':{'Артём':['Бел. яз.','Бел. лит.','Труд','Матем.','Рус. яз.','Физ-ра'],'Мария':['Биол.','Физ-ра','Ист. Беларуси','Информ.','Матем.','Англ. яз.'],'Оля':['Бел. лит.','Матем.','Физ-ра и зд.','Бел. яз.','ИЗО']},
+'Среда':{'Артём':['Матем.','Всемир. ист.','Искусство','Час зд. и спорта','Англ. яз.'],'Мария':['Физика','Химия','Рус. яз.','Рус. лит.','Матем.','Геогр.'],'Оля':['Рус. лит.','Матем.','Физ-ра и зд.','Рус. яз.','ОБЖ']},
+'Четверг':{'Артём':['Бел. яз.','Бел. лит.','Матем.','ОБЖ','Англ. яз.'],'Мария':['Биол.','Англ. яз.','Бел. яз.','Бел. лит.','Матем.','Физ-ра','Труд'],'Оля':['Бел. лит.','Бел. яз.','Физ-ра и зд.','Чел. и мир']},
+'Пятница':{'Артём':['Рус. яз.','Рус. лит.','Чел. и мир','Матем.','Физ-ра','Бел. яз.'],'Мария':['Рус. яз.','Искусство','Матем.','Англ. яз.','Физика','Химия'],'Оля':['Музыка','Матем.','Рус. яз.','Труд']},
+'Суббота':{'Артём':[],'Мария':[],'Оля':[]}
+};
+const extras={
+'Понедельник':{'Артём':[['14:45',null,'Дзюдо','extra']],'Мария':[],'Оля':[['18:00',null,'Танцы','extra']]},
+'Вторник':{'Артём':[['16:00',null,'Английский','extra']],'Мария':[],'Оля':[['13:00',null,'Фортепиано','music'],['14:15','15:45','Хор','music'],['16:10','17:45','Рисование','extra']]},
+'Среда':{'Артём':[['14:45',null,'Дзюдо','extra']],'Мария':[],'Оля':[['18:00',null,'Танцы','extra']]},
+'Четверг':{'Артём':[['16:00',null,'Английский','extra']],'Мария':[],'Оля':[['13:00',null,'Фортепиано','music'],['14:00',null,'Групповой хор','music'],['16:10','17:45','Рисование','extra']]},
+'Пятница':{'Артём':[['14:45',null,'Дзюдо','extra']],'Мария':[],'Оля':[]},
+'Суббота':{'Артём':[['10:00',null,'Дзюдо','extra']],'Мария':[],'Оля':[['10:30',null,'Вокал','music'],['11:20',null,'Сольфеджио','music']]}
+};
+const tz='Europe/Minsk';
+const nowParts=()=>Object.fromEntries(new Intl.DateTimeFormat('ru-RU',{timeZone:tz,weekday:'long',year:'numeric',month:'long',day:'numeric',hour:'2-digit',minute:'2-digit',hour12:false}).formatToParts(new Date()).map(p=>[p.type,p.value]));
+const mins=s=>{const [h,m]=s.split(':').map(Number);return h*60+m};
+const esc=s=>s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const parts=nowParts();
+const todayName=parts.weekday[0].toUpperCase()+parts.weekday.slice(1);
+let selected=days.includes(todayName)?todayName:'Понедельник';
+document.getElementById('date').textContent=`${parts.day} ${parts.month} ${parts.year}`;
+
+function eventsFor(day,person){
+  const school=(lessons[day][person]||[]).map((title,i)=>({start:bells[i][0],end:bells[i][1],title,type:'school'}));
+  const add=(extras[day][person]||[]).map(([start,end,title,type])=>({start,end,title,type}));
+  return [...school,...add].sort((a,b)=>mins(a.start)-mins(b.start));
+}
+function render(){
+  document.querySelectorAll('.day').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.day===selected)));
+  document.getElementById('heading').textContent=selected;
+  const isToday=selected===todayName, current=mins(`${parts.hour}:${parts.minute}`);
+  document.getElementById('status').textContent=isToday?'Сегодня':'Просмотр дня';
+  const html=people.map(person=>{
+    const events=eventsFor(selected,person); let nextMarked=false;
+    const items=events.map(e=>{
+      let state='';
+      if(isToday&&e.end&&current>=mins(e.start)&&current<=mins(e.end)) state='now';
+      else if(isToday&&!nextMarked&&current<mins(e.start)){state='next';nextMarked=true}
+      const badge=state==='now'?'<span class="badge">сейчас</span>':state==='next'?'<span class="badge">далее</span>':'';
+      const time=e.end?`${e.start}–${e.end}`:`с ${e.start}`;
+      return `<li class="event ${e.type} ${state}"><span class="time">${time}</span><span class="title">${esc(e.title)}${badge}</span></li>`;
+    }).join('');
+    return `<article class="person"><div class="person-head"><h3>${person}</h3><span class="count">${events.length} зан.</span></div>${items?`<ul class="events">${items}</ul>`:'<div class="empty">Занятий нет</div>'}</article>`;
+  }).join('');
+  document.getElementById('schedule').innerHTML=html;
+}
+const nav=document.getElementById('days');
+days.forEach((d,i)=>{const b=document.createElement('button');b.className='day';b.type='button';b.role='tab';b.dataset.day=d;b.textContent=short[i];b.title=d;b.onclick=()=>{selected=d;render();};nav.appendChild(b)});
+document.getElementById('today').onclick=()=>{selected=days.includes(todayName)?todayName:'Понедельник';render()};
+render();
+</script>
+</body>
+</html>
