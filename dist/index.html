@@ -23,7 +23,7 @@
     .day[aria-selected="true"]{background:var(--navy);border-color:var(--navy);color:#fff;box-shadow:0 5px 14px rgba(23,63,95,.2)}
     .summary{display:flex;align-items:center;justify-content:space-between;margin:5px 1px 12px;gap:12px}
     .summary h2{font-size:1.05rem;margin:0}.summary span{color:var(--muted);font-size:.85rem}
-    .grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+    .grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;touch-action:pan-y}
     .person{background:var(--card);border:1px solid #dfe8ed;border-radius:18px;overflow:hidden;box-shadow:var(--shadow)}
     .person-head{display:flex;align-items:center;justify-content:space-between;padding:15px 16px;background:var(--blue);border-bottom:1px solid var(--line)}
     .person h3{font-size:1.14rem;margin:0}.count{font-size:.78rem;color:#5d7483;background:#fff;padding:4px 8px;border-radius:999px}
@@ -99,9 +99,25 @@ function render(){
   }).join('');
   document.getElementById('schedule').innerHTML=html;
 }
+function changeDay(step){
+  const index=days.indexOf(selected);
+  selected=days[(index+step+days.length)%days.length];
+  render();
+  requestAnimationFrame(()=>document.querySelector('.day[aria-selected="true"]')?.scrollIntoView({behavior:'smooth',inline:'center',block:'nearest'}));
+}
 const nav=document.getElementById('days');
 days.forEach((d,i)=>{const b=document.createElement('button');b.className='day';b.type='button';b.role='tab';b.dataset.day=d;b.textContent=short[i];b.title=d;b.onclick=()=>{selected=d;render();};nav.appendChild(b)});
 document.getElementById('today').onclick=()=>{selected=days.includes(todayName)?todayName:'Понедельник';render()};
+const schedule=document.getElementById('schedule');
+let touchStart=null;
+schedule.addEventListener('touchstart',event=>{const t=event.changedTouches[0];touchStart={x:t.clientX,y:t.clientY}},{passive:true});
+schedule.addEventListener('touchend',event=>{
+  if(!touchStart)return;
+  const t=event.changedTouches[0],dx=t.clientX-touchStart.x,dy=t.clientY-touchStart.y;
+  touchStart=null;
+  if(Math.abs(dx)>=55&&Math.abs(dx)>Math.abs(dy)*1.4)changeDay(dx<0?1:-1);
+},{passive:true});
+schedule.addEventListener('touchcancel',()=>{touchStart=null},{passive:true});
 render();
 </script>
 </body>
