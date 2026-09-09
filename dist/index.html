@@ -72,8 +72,8 @@ const tz='Europe/Minsk';
 const nowParts=()=>Object.fromEntries(new Intl.DateTimeFormat('ru-RU',{timeZone:tz,weekday:'long',year:'numeric',month:'long',day:'numeric',hour:'2-digit',minute:'2-digit',hour12:false}).formatToParts(new Date()).map(p=>[p.type,p.value]));
 const mins=s=>{const [h,m]=s.split(':').map(Number);return h*60+m};
 const esc=s=>s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const parts=nowParts();
-const todayName=parts.weekday[0].toUpperCase()+parts.weekday.slice(1);
+let parts=nowParts();
+let todayName=parts.weekday[0].toUpperCase()+parts.weekday.slice(1);
 let selected=days.includes(todayName)?todayName:'Понедельник';
 document.getElementById('date').textContent=`${parts.day} ${parts.month} ${parts.year}`;
 
@@ -120,7 +120,16 @@ schedule.addEventListener('touchend',event=>{
   if(Math.abs(dx)>=55&&Math.abs(dx)>Math.abs(dy)*1.4)changeDay(dx<0?1:-1);
 },{passive:true});
 schedule.addEventListener('touchcancel',()=>{touchStart=null},{passive:true});
-render();
+function refreshClock(){
+  const previousToday=todayName;
+  parts=nowParts();
+  todayName=parts.weekday[0].toUpperCase()+parts.weekday.slice(1);
+  if(selected===previousToday&&days.includes(todayName))selected=todayName;
+  document.getElementById('date').textContent=`${parts.day} ${parts.month} ${parts.year}`;
+  render();
+}
+refreshClock();
+setInterval(refreshClock,5*60*1000);
 </script>
 </body>
 </html>
